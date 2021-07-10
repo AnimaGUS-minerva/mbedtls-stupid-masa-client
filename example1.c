@@ -7,13 +7,28 @@
 #include <netdb.h>
 #include <unistd.h>
 
-#include "mbedtls/net.h"
+#if defined(MBEDTLS_PLATFORM_C)
+#include "mbedtls/platform.h"
+#else
+#include <stdio.h>
+#include <stdlib.h>
+#define mbedtls_time            time
+#define mbedtls_time_t          time_t
+#define mbedtls_fprintf         fprintf
+#define mbedtls_printf          printf
+#define mbedtls_exit            exit
+#define MBEDTLS_EXIT_SUCCESS    EXIT_SUCCESS
+#define MBEDTLS_EXIT_FAILURE    EXIT_FAILURE
+#endif /* MBEDTLS_PLATFORM_C */
+
+#include "mbedtls/net_sockets.h"
 #include "mbedtls/ssl.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/debug.h"
+#include "mbedtls/error.h"
 
-#define SERVER_PORT 443
+#define SERVER_PORT "443"
 #define SERVER_NAME "howsmyssl.com"
 #define GET_REQUEST "GET /a/check HTTP/1.0\r\n\r\n"
 
@@ -32,6 +47,7 @@ int main( void )
     unsigned char buf[1024];
     struct sockaddr_in server_addr;
     struct hostent *server_host;
+    const char *pers = "my_example1";
 
     mbedtls_net_context server_fd;
     mbedtls_entropy_context entropy;
@@ -42,7 +58,7 @@ int main( void )
     mbedtls_net_init( &server_fd );
     mbedtls_ssl_init( &ssl );
     mbedtls_ssl_config_init( &conf );
-    mbedtls_x509_crt_init( &cacert );
+    //mbedtls_x509_crt_init( &cacert );
     mbedtls_ctr_drbg_init( &ctr_drbg );
 
     mbedtls_entropy_init( &entropy );
