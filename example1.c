@@ -29,8 +29,8 @@
 #include "mbedtls/error.h"
 
 #define SERVER_PORT "443"
-#define SERVER_NAME "howsmyssl.com"
-#define GET_REQUEST "GET /a/check HTTP/1.0\r\n\r\n"
+#define SERVER_NAME "masa.honeydukes.sandelman.ca"
+#define GET_REQUEST "GET /status.json HTTP/1.0"
 
 
 static void my_debug( void *ctx, int level, const char *file, int line, const char *str ) {
@@ -96,8 +96,15 @@ int main( void )
 
     mbedtls_ssl_conf_rng( &conf, mbedtls_ctr_drbg_random, &ctr_drbg );
     mbedtls_ssl_conf_dbg( &conf, my_debug, stdout );
+    //mbedtls_ssl_conf_ca_chain( &conf, &cacert, NULL );
 
-    if( ( ret = mbedtls_ssl_set_hostname( &ssl, "Mbed TLS Server 1" ) ) != 0 ) {
+    if( ( ret = mbedtls_ssl_setup( &ssl, &conf ) ) != 0 )
+    {
+        mbedtls_printf( " failed\n  ! mbedtls_ssl_setup returned %d\n\n", ret );
+        goto exit;
+    }
+
+    if( ( ret = mbedtls_ssl_set_hostname( &ssl, SERVER_NAME ) ) != 0 ) {
       mbedtls_printf( " failed\n ! mbedtls_ssl_set_hostname returned %d\n\n", ret );
       goto exit;
     }
@@ -106,12 +113,29 @@ int main( void )
 
 
     /*
+     * 4. Handshake
+     */
+    mbedtls_printf( "  . Performing the SSL/TLS handshake..." );
+    fflush( stdout );
+
+    while( ( ret = mbedtls_ssl_handshake( &ssl ) ) != 0 )
+    {
+        if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
+        {
+            mbedtls_printf( " failed\n  ! mbedtls_ssl_handshake returned -0x%x\n\n", (unsigned int) -ret );
+            goto exit;
+        }
+    }
+
+    mbedtls_printf( " ok\n" );
+
+    /*
      * Write the GET request
      */
     printf( "  > Write to server:" );
     fflush( stdout );
 
-    len = sprintf( (char *) buf, GET_REQUEST );
+    len = sprintf( (char *) buf, "%s\r\nHost: %s\r\n\r\n", GET_REQUEST, SERVER_NAME );
 
     while( ( ret = mbedtls_ssl_write( &ssl, buf, len ) ) <= 0 )
     {
